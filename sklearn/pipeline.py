@@ -156,7 +156,7 @@ class Pipeline(_BaseComposition):
         self.memory = memory
         self.verbose = verbose
 
-    def set_output(self, *, transform=None):
+    def set_output(self, *, transform=None, predict=None, predict_proba=None):
         """Set the output container when `"transform"` and `"fit_transform"` are called.
 
         Calling `set_output` will set the output of all estimators in `steps`.
@@ -176,7 +176,12 @@ class Pipeline(_BaseComposition):
             Estimator instance.
         """
         for _, _, step in self._iter():
-            _safe_set_output(step, transform=transform)
+            _safe_set_output(
+                step,
+                transform=transform,
+                predict=predict,
+                predict_proba=predict_proba,
+            )
         return self
 
     def get_params(self, deep=True):

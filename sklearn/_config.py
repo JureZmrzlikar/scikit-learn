@@ -15,6 +15,8 @@ _global_config = {
     "enable_cython_pairwise_dist": True,
     "array_api_dispatch": False,
     "transform_output": "default",
+    "predict_output": "default",
+    "predict_proba_output": "default",
     "enable_metadata_routing": False,
     "skip_parameter_validation": False,
 }
@@ -56,6 +58,8 @@ def set_config(
     enable_cython_pairwise_dist=None,
     array_api_dispatch=None,
     transform_output=None,
+    predict_output=None,
+    predict_proba_output=None,
     enable_metadata_routing=None,
     skip_parameter_validation=None,
 ):
@@ -187,6 +191,10 @@ def set_config(
         local_config["array_api_dispatch"] = array_api_dispatch
     if transform_output is not None:
         local_config["transform_output"] = transform_output
+    if predict_output is not None:
+        local_config["predict_output"] = predict_output
+    if predict_proba_output is not None:
+        local_config["predict_proba_output"] = predict_proba_output
     if enable_metadata_routing is not None:
         local_config["enable_metadata_routing"] = enable_metadata_routing
     if skip_parameter_validation is not None:
@@ -204,6 +212,8 @@ def config_context(
     enable_cython_pairwise_dist=None,
     array_api_dispatch=None,
     transform_output=None,
+    predict_output=None,
+    predict_proba_output=None,
     enable_metadata_routing=None,
     skip_parameter_validation=None,
 ):

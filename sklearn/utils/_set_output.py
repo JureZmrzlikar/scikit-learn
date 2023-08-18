@@ -53,12 +53,15 @@ def _wrap_in_pandas_container(
 
     pd = check_pandas_support("Setting output container to 'pandas'")
 
-    if isinstance(data_to_wrap, pd.DataFrame):
-        if columns is not None:
-            data_to_wrap.columns = columns
-        return data_to_wrap
+    if len(data_to_wrap.shape) == 1:
+        return pd.Series(data_to_wrap, index=index, name="class")
+    else:
+        if isinstance(data_to_wrap, pd.DataFrame):
+            if columns is not None:
+                data_to_wrap.columns = columns
+            return data_to_wrap
 
-    return pd.DataFrame(data_to_wrap, index=index, columns=columns, copy=False)
+        return pd.DataFrame(data_to_wrap, index=index, columns=columns, copy=False)
 
 
 def _get_output_config(method, estimator=None):
@@ -127,11 +130,25 @@ def _wrap_data_with_container(method, data_to_wrap, original_input, estimator):
 
     # dense_config == "pandas"
     index = original_input.index if _is_pandas_df(original_input) else None
-    return _wrap_in_pandas_container(
-        data_to_wrap=data_to_wrap,
-        index=index,
-        columns=estimator.get_feature_names_out,
-    )
+    if hasattr(estimator, "get_feature_names_out"):
+        return _wrap_in_pandas_container(
+            data_to_wrap=data_to_wrap,
+            index=index,
+            columns=estimator.get_feature_names_out,
+        )
+    if hasattr(estimator, "classes_"):
+        if method == "predict_proba":
+            return _wrap_in_pandas_container(
+                data_to_wrap=data_to_wrap,
+                index=index,
+                columns=estimator.classes_,
+            )
+        elif method == "predict":
+            return _wrap_in_pandas_container(
+                data_to_wrap=data_to_wrap,
+                index=index,
+                columns=["this_is_never_used"],
+            )
 
 
 def _wrap_method_output(f, method):
@@ -165,8 +182,8 @@ def _auto_wrap_is_configured(estimator):
     """
     auto_wrap_output_keys = getattr(estimator, "_sklearn_auto_wrap_output_keys", set())
     return (
-        hasattr(estimator, "get_feature_names_out")
-        and "transform" in auto_wrap_output_keys
+        (hasattr(estimator, "get_feature_names_out") and "transform" in auto_wrap_output_keys)
+        or ("predict_proba" in auto_wrap_output_keys or "predict" in auto_wrap_output_keys)
     )
 
 
@@ -180,9 +197,8 @@ class _SetOutputMixin:
     `auto_wrap_output_keys` is the default value.
     """
 
-    def __init_subclass__(cls, auto_wrap_output_keys=("transform",), **kwargs):
+    def __init_subclass__(cls, auto_wrap_output_keys=("transform", "predict", "predict_proba"), **kwargs):
         super().__init_subclass__(**kwargs)
-
         # Dynamically wraps `transform` and `fit_transform` and configure it's
         # output based on `set_output`.
         if not (
@@ -198,6 +214,8 @@ class _SetOutputMixin:
         method_to_key = {
             "transform": "transform",
             "fit_transform": "transform",
+            "predict": "predict",
+            "predict_proba": "predict_proba",
         }
         cls._sklearn_auto_wrap_output_keys = set()
 
@@ -213,7 +231,7 @@ class _SetOutputMixin:
             setattr(cls, method, wrapped_method)
 
     @available_if(_auto_wrap_is_configured)
-    def set_output(self, *, transform=None):
+    def set_output(self, *, transform=None, predict=None, predict_proba=None):
         """Set output container.
 
         See :ref:`sphx_glr_auto_examples_miscellaneous_plot_set_output.py`
@@ -233,17 +251,19 @@ class _SetOutputMixin:
         self : estimator instance
             Estimator instance.
         """
-        if transform is None:
+        if transform is None and predict is None and predict_proba is None:
             return self
 
         if not hasattr(self, "_sklearn_output_config"):
             self._sklearn_output_config = {}
 
         self._sklearn_output_config["transform"] = transform
+        self._sklearn_output_config["predict"] = predict
+        self._sklearn_output_config["predict_proba"] = predict_proba
         return self
 
 
-def _safe_set_output(estimator, *, transform=None):
+def _safe_set_output(estimator, *, transform=None, predict=None, predict_proba=None):
     """Safely call estimator.set_output and error if it not available.
 
     This is used by meta-estimators to set the output for child estimators.
@@ -271,7 +291,15 @@ def _safe_set_output(estimator, *, transform=None):
         or hasattr(estimator, "fit_transform")
         and transform is not None
     )
-    if not set_output_for_transform:
+    set_output_for_predict = (
+        hasattr(estimator, "predict")
+        and predict is not None
+    )
+    set_output_for_predict_proba = (
+        hasattr(estimator, "predict_proba")
+        and predict_proba is not None
+    )
+    if not set_output_for_transform and not set_output_for_predict and not set_output_for_predict_proba:
         # If estimator can not transform, then `set_output` does not need to be
         # called.
         return
@@ -281,4 +309,4 @@ def _safe_set_output(estimator, *, transform=None):
             f"Unable to configure output for {estimator} because `set_output` "
             "is not available."
         )
-    return estimator.set_output(transform=transform)
+    return estimator.set_output(transform=transform, predict=predict, predict_proba=predict_proba)

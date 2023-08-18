@@ -2177,3 +2177,32 @@ def test_passing_params_without_enabling_metadata_routing():
 
         with pytest.raises(ValueError, match=msg):
             lr_cv.score(X, y, **params)
+
+
+def test_logistic_regression_set_output():
+    pd = pytest.importorskip("pandas")
+
+    df = pd.DataFrame(
+        {"F1": [1, 2, 3], "F2": [4, 5, 6]},
+        index=[f"S{i + 1}" for i in range(3)],
+    )
+    y = pd.Series([0, 0, 1], index=df.index)
+
+    lr = LogisticRegressionDefault()
+    lr.fit(df, y)
+    predict_default = lr.predict(df)
+    predict_proba_default = lr.predict_proba(df)
+    assert isinstance(predict_default, np.ndarray)
+    assert isinstance(predict_proba_default, np.ndarray)
+
+    lr.set_output(predict_proba="pandas", predict="pandas")
+    predict_pandas = lr.predict(df)
+    assert isinstance(predict_pandas, pd.Series)
+    assert (predict_pandas.index.values == df.index.values).all()
+    assert (predict_pandas.values == predict_default).all()
+
+    predict_proba_pandas = lr.predict_proba(df)
+    assert isinstance(predict_proba_pandas, pd.DataFrame)
+    assert (predict_proba_pandas.index.values == df.index.values).all()
+    assert (predict_proba_pandas.columns.values == lr.classes_).all()
+    assert (predict_proba_pandas.values == predict_proba_default).all()

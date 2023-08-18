@@ -1595,18 +1595,27 @@ def test_pipeline_get_feature_names_out_passes_names_through():
 
 def test_pipeline_set_output_integration():
     """Test pipeline's set_output with feature names."""
-    pytest.importorskip("pandas")
+    pd = pytest.importorskip("pandas")
 
     X, y = load_iris(as_frame=True, return_X_y=True)
 
     pipe = make_pipeline(StandardScaler(), LogisticRegression())
-    pipe.set_output(transform="pandas")
+    pipe.set_output(transform="pandas", predict="pandas", predict_proba="pandas")
     pipe.fit(X, y)
 
     feature_names_in_ = pipe[:-1].get_feature_names_out()
     log_reg_feature_names = pipe[-1].feature_names_in_
 
     assert_array_equal(feature_names_in_, log_reg_feature_names)
+
+    predicted = pipe.predict(X)
+    assert isinstance(predicted, pd.Series)
+    assert_array_equal(predicted.index, X.index)
+
+    predicted_proba = pipe.predict_proba(X)
+    assert isinstance(predicted_proba, pd.DataFrame)
+    assert_array_equal(predicted_proba.index, X.index)
+    assert_array_equal(predicted_proba.columns, [0, 1, 2])
 
 
 def test_feature_union_set_output():

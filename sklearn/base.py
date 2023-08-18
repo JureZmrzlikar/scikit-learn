@@ -672,7 +672,7 @@ class BaseEstimator(_MetadataRequester):
         return output
 
 
-class ClassifierMixin:
+class ClassifierMixin(_SetOutputMixin):
     """Mixin class for all classifiers in scikit-learn."""
 
     _estimator_type = "classifier"

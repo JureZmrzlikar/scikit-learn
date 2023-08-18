@@ -297,6 +297,40 @@ def test_set_output_pandas_keep_index():
     assert_array_equal(X_trans.index, ["s0", "s1"])
 
 
+class Predictor(_SetOutputMixin):
+
+    def fit(self, X, y=None):
+        self.n_features_in_ = X.shape[1]
+        self.classes_ = np.sort(np.unique(y))
+        return self
+
+    def predict_proba(self, X):
+        # transform by giving output a new index.
+        return np.random.rand(X.shape[0], len(self.classes_))
+
+    def predict(self, X):
+        return np.random.choice(self.classes_, size=X.shape[0])
+
+
+def test_set_output_pandas_predict():
+    """Check that set_output does not override index.
+
+    Non-regression test for gh-25730.
+    """
+    pd = pytest.importorskip("pandas")
+
+    X = pd.DataFrame({"F1": [1, 2, 3], "F2": [4, 5, 6]}, index=["S1", "S2", "S3"])
+    y = pd.Series([0, 0, 1], index=["S1", "S2", "S3"])
+    est = Predictor().set_output(predict="pandas", predict_proba="pandas")
+    est.fit(X, y)
+
+    prds = est.predict(X)
+    assert_array_equal(prds.index, ["S1", "S2", "S3"])
+
+    probas = est.predict_proba(X)
+    assert_array_equal(probas.index, ["S1", "S2", "S3"])
+
+
 class EstimatorReturnTuple(_SetOutputMixin):
     def __init__(self, OutputTuple):
         self.OutputTuple = OutputTuple

@@ -5,11 +5,12 @@ Introducing the `set_output` API
 
 .. currentmodule:: sklearn
 
-This example will demonstrate the `set_output` API to configure transformers to
-output pandas DataFrames. `set_output` can be configured per estimator by calling
-the `set_output` method or globally by setting `set_config(transform_output="pandas")`.
-For details, see
+This example demonstrates the `set_output` API to configure transformers and classifiers to
+output pandas objects (DataFrame, Series). `set_output` can be configured per estimator by calling
+the `set_output` method or globally by `set_config` method. For details regarding transformers, see
 `SLEP018 <https://scikit-learn-enhancement-proposals.readthedocs.io/en/latest/slep018/proposal.html>`__.
+
+# TODO Do we add another SLEP where we spec out the roadmap for classifiers, regressors, etc.?
 """  # noqa
 
 # %%
@@ -22,8 +23,10 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, random_sta
 X_train.head()
 
 # %%
-# To configure an estimator such as :class:`preprocessing.StandardScaler` to return
+# To configure a transformer such as :class:`preprocessing.StandardScaler` to return
 # DataFrames, call `set_output`. This feature requires pandas to be installed.
+# The name of the argument (`transform="pandas"`) suggests that the result of the
+# transform method is a pandas object, i.e., DataFrame.
 
 from sklearn.preprocessing import StandardScaler
 
@@ -46,6 +49,19 @@ X_test_df = scaler2.transform(X_test)
 print(f"Configured pandas output type: {type(X_test_df).__name__}")
 
 # %%
+#  Method `set_output` is also available for classifiers. In the case of classifiers,
+# one wishes to configure the output of methods `predict` and `predict_proba`. This
+# is reflected in the arguments to the `set_output` method.
+
+from sklearn.linear_model import LogisticRegression
+
+lr = LogisticRegression().set_output(predict="pandas", predict_proba="pandas")
+
+lr.fit(X_train, y_train)
+lr.predict(X_test).head()
+lr.predict_proba(X_test).head()
+
+# %%
 # In a :class:`pipeline.Pipeline`, `set_output` configures all steps to output
 # DataFrames.
 from sklearn.feature_selection import SelectPercentile
@@ -55,8 +71,15 @@ from sklearn.pipeline import make_pipeline
 clf = make_pipeline(
     StandardScaler(), SelectPercentile(percentile=75), LogisticRegression()
 )
-clf.set_output(transform="pandas")
+clf.set_output(transform="pandas", predict="pandas")
 clf.fit(X_train, y_train)
+clf.predict(X_test).head()
+
+# %%
+# However, set_output is currently only supported for transformers and
+# classifiers. If the pipeline contains a step that is neither transformer nor
+# classifier, set_output has no effect and the result of regressor will remain
+# numpy array.
 
 # %%
 # Each transformer in the pipeline is configured to return DataFrames. This
@@ -101,6 +124,8 @@ ct = ColumnTransformer(
 clf = make_pipeline(ct, SelectPercentile(percentile=50), LogisticRegression())
 clf.fit(X_train, y_train)
 clf.score(X_test, y_test)
+clf.predict_proba(X_test)
+# This has to output pandas DataFrame, but currently does not
 
 # %%
 # With the global configuration, all transformers output DataFrames. This allows us to
